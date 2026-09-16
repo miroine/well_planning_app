@@ -1,4 +1,4 @@
-# Kestrel: well engineering workbench
+# Well Planning App
 
 A Streamlit application for screening-level well design: trajectory planning, torque & drag, hydraulics, casing and cementing, geomechanics, well control, BHA dynamics and time & cost, all driven from one project file with live engineering checks.
 
@@ -11,6 +11,14 @@ streamlit run app.py
 ```
 
 The app opens on an anonymised example offshore well (J-type, five casing strings, 8-1/2" PDC section) so every page has data from the first click. Save the project as JSON from the sidebar, edit it, and reload it later.
+
+## Editing data
+
+Inputs on every page sit in boxes with an **Apply** button. Typing only changes the box; pressing Apply stores the values in the design used by all pages, shows a **Data modified** tag with what changed and when, and autosaves.
+
+The autosave is keyed to the `?sid=` code in the browser address, so switching pages, refreshing or reopening the same address brings the applied design back. Values typed but not applied are discarded when you leave the page. Use **Save project (JSON)** in the sidebar to keep a file copy; the tag then shows the design as saved.
+
+On Streamlit Community Cloud the autosave folder is cleared when the app restarts, so save a project file for anything you want to keep.
 
 ## Modules
 
@@ -41,9 +49,10 @@ ks_ui/views/           one module per page
 ks_ui/report.py        HTML report
 tests/test_engine.py   66 analytic and published-table checks
 tests/test_ui_smoke.py renders every page headless across 7 project scenarios
+tests/test_editing.py   Apply workflow: drafts, Data modified tag, page switching, refresh restore, save/reset
 ```
 
-Run the tests with `python tests/test_engine.py` and `python tests/test_ui_smoke.py`, or `pytest tests/`. The UI smoke test uses built-in Streamlit/Plotly stand-ins when those packages are not installed; with them installed, check the UI with `streamlit run app.py`.
+Run the tests with `python tests/test_engine.py` and `python tests/test_ui_smoke.py`, `python tests/test_editing.py`, or `pytest tests/`. The UI smoke test uses built-in Streamlit/Plotly stand-ins when those packages are not installed; with them installed, check the UI with `streamlit run app.py`.
 
 Widget state follows one rule: every widget key carries a project revision number, so opening or resetting a project rebuilds all inputs from the file instead of showing stale values.
 
