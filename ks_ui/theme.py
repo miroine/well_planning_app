@@ -67,6 +67,14 @@ h1 {{ font-size: 1.55rem; }} h2 {{ font-size: 1.25rem; }} h3 {{ font-size: 1.05r
 .ks-foot {{ color:{MUTED}; font-size:.75rem; margin-top:2rem; border-top:1px solid {LINE}; padding-top:.6rem; }}
 div[data-testid="stForm"] {{ background:#fff; border:1px solid {LINE}; border-radius:10px; }}
 [data-testid="stMetricValue"] {{ font-variant-numeric: tabular-nums; }}
+.ks-status {{ display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin:-.2rem 0 .6rem 0; font-size:.8rem; color:{MUTED}; }}
+.ks-tag {{ display:inline-flex; align-items:center; gap:.35rem; padding:.18rem .6rem; border-radius:999px; font-weight:600; font-size:.75rem; }}
+.ks-tag::before {{ content:""; width:.5rem; height:.5rem; border-radius:50%; background:currentColor; }}
+.ks-tag.mod {{ background:#FFF4E5; color:#B35F00; border:1px solid #FFD199; }}
+.ks-tag.clean {{ background:#EAF4F8; color:{MOSS}; border:1px solid #BFDDE2; }}
+.ks-tag.saved {{ background:#F3F8E0; color:#5E7000; border:1px solid #D6E6A3; }}
+[data-testid="stSidebar"] .ks-tag.mod {{ background:#3A2A12; color:#FFC266; border-color:#6B4A18; }}
+[data-testid="stSidebar"] .ks-tag.clean, [data-testid="stSidebar"] .ks-tag.saved {{ background:{NAVY_2}; color:{MOSS_LIGHT}; border-color:#1E4461; }}
 button:focus-visible {{ outline: 2px solid {MOSS_LIGHT} !important; outline-offset: 2px; }}
 </style>
 """
@@ -78,7 +86,7 @@ BRAND = f"""
     <path d="M11 6 V16 Q11 26 23 28" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
     <circle cx="23" cy="28" r="2.4" fill="{AMBER}"/>
   </svg>
-  <div><b>Kestrel</b><span>Well engineering workbench</span></div>
+  <div><b>Well Planning App</b><span>Well engineering and planning</span></div>
 </div>
 """
 
@@ -97,6 +105,17 @@ def check_html(c):
             f'<div class="t"><span>{html.escape(c["check"])}</span>'
             f'<span class="s" style="color:{col}">{word}</span></div>'
             f'<div class="n">{html.escape(str(c["value"]))} against limit {html.escape(str(c["limit"]))}. {html.escape(c["note"])}</div></div>')
+
+
+def status_html(modified, unsaved, last, n_changes):
+    if modified:
+        tag = '<span class="ks-tag mod">Data modified</span>'
+        detail = f"{n_changes} change{'s' if n_changes != 1 else ''} applied, last: {html.escape(last['section'])} at {html.escape(last['time'])}"
+        detail += " · not yet saved to a project file" if unsaved else " · saved to project file"
+    else:
+        tag = '<span class="ks-tag clean">No changes</span>'
+        detail = "Showing the design as loaded"
+    return f'<div class="ks-status">{tag}<span>{detail}. Autosaved; safe to switch pages or refresh.</span></div>'
 
 
 def note_html(text):

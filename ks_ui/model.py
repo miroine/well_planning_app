@@ -22,7 +22,7 @@ from ks_engine import trajectory as tj
 from ks_engine import well_control as wc_eng
 from ks_engine.units import FT2M, M2FT, PSI_PER_FT_PER_PPG
 
-APP_NAME = "Kestrel"
+APP_NAME = "Well Planning App"
 SCHEMA_VERSION = 1
 
 PLAN_TYPES = ["Build & hold (J)", "S-type", "Horizontal", "Vertical", "Survey table"]
@@ -116,7 +116,7 @@ def project_to_json(p):
 def project_from_json(text):
     data = json.loads(text)
     if not isinstance(data, dict) or "header" not in data:
-        raise ValueError("File is not a Kestrel project (missing header)")
+        raise ValueError("File is not a Well Planning App project (missing header)")
     base = new_project()
     # forward-compatible merge: keep defaults for any missing keys
     for k, v in data.items():

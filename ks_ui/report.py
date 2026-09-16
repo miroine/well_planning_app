@@ -63,5 +63,5 @@ table{{border-collapse:collapse;width:100%;margin:6px 0 10px}}th,td{{border:1px 
                      [["Total incl. mobilisation", f"{plan['total_days']:.1f}", f"{plan['total_cost']/1e6:.2f}"]]))
     except Exception as exc:  # report must still render
         parts.append(f"<p>Cost plan unavailable: {E(str(exc))}</p>")
-    parts.append("<div class='foot'>Screening-level results from Kestrel. Verify with qualified engineers and approved software before operational use.</div>")
+    parts.append("<div class='foot'>Screening-level results from Well Planning App. Verify with qualified engineers and approved software before operational use.</div>")
     return f"<!doctype html><html><head><meta charset='utf-8'><title>{E(h['well_name'])} engineering summary</title><style>{css}</style></head><body>{''.join(parts)}</body></html>"
