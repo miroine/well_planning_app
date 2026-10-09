@@ -115,16 +115,43 @@ def project_to_json(p):
 
 def project_from_json(text):
     data = json.loads(text)
-    if not isinstance(data, dict) or "header" not in data:
+    if not isinstance(data, dict) or not isinstance(data.get("header"), dict):
         raise ValueError("File is not a Well Planning App project (missing header)")
     base = new_project()
     # forward-compatible merge: keep defaults for any missing keys
     for k, v in data.items():
+        if k in base and not isinstance(v, type(base[k])):
+            raise ValueError(f"Invalid project field {k}: expected {type(base[k]).__name__}")
         if isinstance(v, dict) and isinstance(base.get(k), dict):
             base[k].update(v)
         else:
             base[k] = v
+    _validate_project_values(DEFAULT_PROJECT, base)
     return base
+
+
+def _validate_project_values(template, value, path="project"):
+    if isinstance(template, dict):
+        if not isinstance(value, dict):
+            raise ValueError(f"Invalid {path}: expected an object")
+        for key, expected in template.items():
+            if key not in value:
+                raise ValueError(f"Invalid {path}.{key}: missing required field")
+            _validate_project_values(expected, value[key], f"{path}.{key}")
+    elif isinstance(template, list):
+        if not isinstance(value, list):
+            raise ValueError(f"Invalid {path}: expected an array")
+        if template:
+            for index, item in enumerate(value):
+                _validate_project_values(template[0], item, f"{path}[{index}]")
+    elif isinstance(template, bool):
+        if not isinstance(value, bool):
+            raise ValueError(f"Invalid {path}: expected a boolean")
+    elif isinstance(template, (int, float)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value):
+            raise ValueError(f"Invalid {path}: expected a finite number")
+    elif isinstance(template, str) and not isinstance(value, str):
+        raise ValueError(f"Invalid {path}: expected text")
 
 
 def section_key(p, *keys):
@@ -187,11 +214,10 @@ def actual_trajectory_m(p):
     return t
 
 
-def offset_trajectories_m(p):
+def offset_trajectories_m(p, errors=None):
     out = []
     for o in p.get("offset_wells", []):
         try:
-            disp = 0.0
             r = tj.plan_vertical(float(o["td"]), 30.0) if float(o.get("hold_inc", 0)) <= 0 else None
             if r is None:
                 kop, bur, inc = float(o["kop"]), max(float(o["bur"]), 0.1), float(o["hold_inc"])
@@ -202,16 +228,17 @@ def offset_trajectories_m(p):
             t = tj.minimum_curvature(r.md, r.inc, r.azi, 0.0, float(o["surface_n"]), float(o["surface_e"]))
             t["name"] = o["name"]
             out.append(t)
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError) as exc:
+            if errors is not None:
+                errors.append(f"{o.get('name', 'Offset well')}: {exc}")
             continue
-        del disp
     return out
 
 
-def anticollision(p, traj):
+def anticollision(p, traj, errors=None):
     lim = p["limits"]
     res = []
-    for o in offset_trajectories_m(p):
+    for o in offset_trajectories_m(p, errors):
         s = tj.separation_to_offset(traj, o, lim["anticol_r0"], lim["anticol_growth"])
         k = int(np.argmin(s["sf"]))
         res.append({"name": o["name"], "sep": s, "min_sf": float(s["sf"][k]), "at_md": float(s["md"][k]),
@@ -364,12 +391,18 @@ def nozzles(p):
     out = []
     for tok in str(p["bit"]["nozzles"]).replace(";", ",").split(","):
         tok = tok.strip()
-        if tok:
-            try:
-                out.append(float(tok))
-            except ValueError:
-                continue
-    return out or [16.0]
+        if not tok:
+            continue
+        try:
+            size = float(tok)
+        except ValueError as exc:
+            raise ValueError(f"Invalid nozzle size {tok!r}; enter comma-separated 1/32-in sizes.") from exc
+        if not np.isfinite(size) or size <= 0:
+            raise ValueError("Nozzle sizes must be positive finite numbers.")
+        out.append(size)
+    if not out:
+        raise ValueError("Enter at least one positive nozzle size in 1/32-in units.")
+    return out
 
 
 def geomech_window(p, tvd_m_grid):
@@ -420,10 +453,10 @@ def operation_summary(p):
     checks = []
     out = {"traj": traj, "plan": plan, "bit_md": bit_md, "bit_tvd": bit_tvd, "inc_bit": inc_bit}
 
-    tdr = run_torque_drag(p, traj)
+    tdr = run_torque_drag(p, traj, bit_md_m=bit_md)
     out["td"] = tdr
     hook_cap = rig["hookload_capacity_klbf"] * 1000 * lim["hookload_derate"]
-    po = run_torque_drag(p, traj, operation="trip_out")
+    po = run_torque_drag(p, traj, operation="trip_out", bit_md_m=bit_md)
     out["pickup"] = po
     checks.append(_chk("Torque & drag", "Hookload (active case)", "pass" if tdr["hookload"] <= hook_cap else "fail",
                        f"{tdr['hookload']/1000:,.1f} klbf", f"{hook_cap/1000:,.0f} klbf",
@@ -448,7 +481,7 @@ def operation_summary(p):
     out["window_bit"] = win_bit
     shoe = deepest_shoe_above(p, bit_md)
     try:
-        hyd = run_hydraulics(p, traj)
+        hyd = run_hydraulics(p, traj, bit_md_m=bit_md)
         out["hyd"] = hyd
         checks.append(_chk("Hydraulics", "Standpipe pressure", "pass" if hyd["spp"] <= 0.9 * rig["pump_rating_psi"] else ("warn" if hyd["spp"] <= rig["pump_rating_psi"] else "fail"),
                            f"{hyd['spp']:,.0f} psi", f"{rig['pump_rating_psi']:,.0f} psi", "Pump/manifold rating (warn > 90%)"))
@@ -476,7 +509,7 @@ def operation_summary(p):
         checks.append(_chk("Hydraulics", "Hydraulics model", "fail", "error", "-", str(exc)))
 
     try:
-        sw = run_surge_swab(p, traj)
+        sw = run_surge_swab(p, traj, bit_md_m=bit_md)
         out["surge"] = sw
         if oc["operation"] in ("trip_in", "ream_in"):
             checks.append(_chk("Tripping", "Surge EMW at bit", "pass" if sw["surge_emw"] <= win_bit["max_mw"] - lim["surge_margin_ppg"] else "fail",
@@ -490,8 +523,12 @@ def operation_summary(p):
     max_dls = float(np.max(traj["dls"][traj["md"] <= bit_md])) if np.any(traj["md"] <= bit_md) else 0.0
     checks.append(_chk("Trajectory", "Max dogleg to bit", "pass" if max_dls <= lim["max_dls"] else "warn",
                        f"{max_dls:.2f} deg/30 m", f"{lim['max_dls']:.1f} deg/30 m", "Planned trajectory"))
-    ac = anticollision(p, traj)
+    offset_errors = []
+    ac = anticollision(p, traj, offset_errors)
     out["anticollision"] = ac
+    if offset_errors:
+        checks.append(_chk("Trajectory", "Offset-well coverage", "warn", f"{len(offset_errors)} offset(s) skipped",
+                           f"{len(p.get('offset_wells', []))} offset(s) defined", "; ".join(offset_errors)))
     if ac:
         worst = min(ac, key=lambda a: a["min_sf"])
         checks.append(_chk("Trajectory", "Anti-collision separation factor",
