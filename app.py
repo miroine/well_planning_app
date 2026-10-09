@@ -45,7 +45,7 @@ def sidebar():
         name = p["header"]["well_name"].replace(" ", "_")
         st.download_button("Save project (JSON)", model.project_to_json(p).encode(), f"{name}.wellplan.json", "application/json",
                            use_container_width=True, key="dl_project", on_click=state.mark_saved)
-        st.download_button("Engineering report (HTML)", report.build(p).encode(), f"{name}_report.html", "text/html",
+        st.download_button("Engineering report (HTML)", report.build(p, res).encode(), f"{name}_report.html", "text/html",
                            use_container_width=True, key="dl_report", help="Open in a browser and print to PDF")
         up = st.file_uploader("Open project", type=["json"], key=f"open_project_{state.rev()}", label_visibility="collapsed")
         if up is not None:

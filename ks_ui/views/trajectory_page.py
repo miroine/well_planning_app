@@ -109,9 +109,12 @@ def render():
         st.plotly_chart(fig, use_container_width=True, key=state.key("tj", "dls"))
     with c2:
         st.subheader("Anti-collision")
-        ac = model.anticollision(p, traj)
+        offset_errors = []
+        ac = model.anticollision(p, traj, offset_errors)
+        if offset_errors:
+            st.warning("Some offset wells were excluded from anti-collision analysis: " + "; ".join(offset_errors))
         if not ac:
-            st.caption("No offset wells defined.")
+            st.caption("No valid offset wells available for analysis.")
         else:
             fig = go.Figure()
             for a in ac:

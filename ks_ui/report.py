@@ -17,9 +17,9 @@ def _table(headers, rows):
     return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
 
 
-def build(p):
+def build(p, res=None):
     h = p["header"]
-    res = model.operation_summary(p)
+    res = model.operation_summary(p) if res is None else res
     css = f"""body{{font-family:'IBM Plex Sans',Arial,sans-serif;color:{theme.INK};margin:0 auto;max-width:900px;padding:28px;font-size:13px}}
 h1{{color:{theme.NAVY};font-size:22px;margin:0}}h2{{color:{theme.NAVY};font-size:15px;border-bottom:2px solid {theme.MOSS};padding-bottom:3px;margin-top:26px;page-break-after:avoid}}
 table{{border-collapse:collapse;width:100%;margin:6px 0 10px}}th,td{{border:1px solid {theme.LINE};padding:3px 6px;text-align:left}}th{{background:{theme.PAPER}}}
