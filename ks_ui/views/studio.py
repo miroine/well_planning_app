@@ -64,20 +64,38 @@ def render():
             oc = p["opcase"]
             ops = list(OPERATIONS.keys())
             a, b = st.columns(2)
-            op = a.selectbox("Operation", ops, index=ops.index(oc["operation"]), format_func=lambda k: OPERATIONS[k])
-            bit_md = b.number_input("Bit / shoe MD (m)", value=float(oc["bit_md_m"]), min_value=1.0, step=10.0)
-            wob = a.number_input("WOB (lb)", value=float(oc["wob_lb"]), min_value=0.0, step=1000.0)
-            btq = b.number_input("Bit torque (ft-lb)", value=float(oc["bit_torque"]), min_value=0.0, step=500.0)
-            rpm = a.number_input("Rotation (RPM)", value=float(oc["rpm"]), min_value=0.0, step=10.0)
-            trip = b.number_input("Tripping speed (m/min)", value=float(oc["trip_speed_mmin"]), min_value=0.0, step=1.0)
-            q = a.number_input("Flow rate (gpm)", value=float(oc["flow_gpm"]), min_value=0.0, step=25.0)
-            rop = b.number_input("ROP (m/hr)", value=float(oc["rop_mhr"]), min_value=0.0, step=1.0)
-            ffc = a.number_input("FF cased", value=float(oc["ff_cased"]), min_value=0.0, max_value=1.0, step=0.01)
-            ffo = b.number_input("FF open hole", value=float(oc["ff_open"]), min_value=0.0, max_value=1.0, step=0.01)
+            op = a.selectbox("Operation", ops, index=ops.index(oc["operation"]), format_func=lambda k: OPERATIONS[k],
+                             key=state.key("opcase", "operation"))
+            bit_md = b.number_input("Bit / shoe MD (m)", value=float(oc["bit_md_m"]), min_value=1.0, step=10.0,
+                                    key=state.key("opcase", "bit_md_m"))
+            wob = a.number_input("WOB (lb)", value=float(oc["wob_lb"]), min_value=0.0, step=1000.0,
+                                 key=state.key("opcase", "wob_lb"))
+            btq = b.number_input("Bit torque (ft-lb)", value=float(oc["bit_torque"]), min_value=0.0, step=500.0,
+                                 key=state.key("opcase", "bit_torque"))
+            rpm = a.number_input("Rotation (RPM)", value=float(oc["rpm"]), min_value=0.0, step=10.0,
+                                 key=state.key("opcase", "rpm"))
+            trip = b.number_input("Tripping speed (m/min)", value=float(oc["trip_speed_mmin"]), min_value=0.0, step=1.0,
+                                  key=state.key("opcase", "trip_speed_mmin"))
+            q = a.number_input("Flow rate (gpm)", value=float(oc["flow_gpm"]), min_value=0.0, step=25.0,
+                               key=state.key("opcase", "flow_gpm"))
+            rop = b.number_input("ROP (m/hr)", value=float(oc["rop_mhr"]), min_value=0.0, step=1.0,
+                                 key=state.key("opcase", "rop_mhr"))
+            ffc = a.number_input("FF cased", value=float(oc["ff_cased"]), min_value=0.0, max_value=1.0, step=0.01,
+                                 key=state.key("opcase", "ff_cased"))
+            ffo = b.number_input("FF open hole", value=float(oc["ff_open"]), min_value=0.0, max_value=1.0, step=0.01,
+                                 key=state.key("opcase", "ff_open"))
             st.caption("Inputs are saved with the project.")
             if st.form_submit_button("Apply operation case", type="primary", use_container_width=True):
-                oc.update({"operation": op, "bit_md_m": bit_md, "wob_lb": wob, "bit_torque": btq, "rpm": rpm,
-                           "trip_speed_mmin": trip, "flow_gpm": q, "rop_mhr": rop, "ff_cased": ffc, "ff_open": ffo})
+                updated = {"operation": op, "bit_md_m": bit_md, "wob_lb": wob, "bit_torque": btq, "rpm": rpm,
+                           "trip_speed_mmin": trip, "flow_gpm": q, "rop_mhr": rop, "ff_cased": ffc, "ff_open": ffo}
+                changed = [field for field, value in updated.items() if oc.get(field) != value]
+                oc.update(updated)
+                if changed:
+                    state.record_change("Operation case", changed)
+                else:
+                    st.session_state[state.FLASH] = "No changes to apply in Operation case."
+                state.bump()
+                state.autosave()
                 st.rerun()
 
         st.markdown("**Engineering checks**")

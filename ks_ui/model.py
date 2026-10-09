@@ -255,6 +255,10 @@ def tvd_at_md_m(traj, md_m):
     return float(tj.interpolate_at_md(traj, [md_m])["tvd"][0])
 
 
+def _bounded_bit_md(traj, bit_md_m):
+    return float(np.clip(bit_md_m, 1.0, traj["md"][-1]))
+
+
 def inc_at_md(traj, md_m):
     return float(tj.interpolate_at_md(traj, [md_m])["inc"][0])
 
@@ -348,7 +352,7 @@ def rheology(p):
 def run_torque_drag(p, traj, operation=None, bit_md_m=None, ff_cased=None, ff_open=None, dl=30.0):
     oc = p["opcase"]
     op = operation or oc["operation"]
-    bit_md = (bit_md_m if bit_md_m is not None else oc["bit_md_m"])
+    bit_md = _bounded_bit_md(traj, bit_md_m if bit_md_m is not None else oc["bit_md_m"])
     shoe = deepest_shoe_above(p, bit_md)
     tf = traj_ft(traj)
     return td_eng.torque_drag(
@@ -364,7 +368,7 @@ def run_torque_drag(p, traj, operation=None, bit_md_m=None, ff_cased=None, ff_op
 
 def run_hydraulics(p, traj, flow_gpm=None, bit_md_m=None, rop_mhr=None, model=None):
     oc = p["opcase"]
-    bit_md = oc["bit_md_m"] if bit_md_m is None else bit_md_m
+    bit_md = _bounded_bit_md(traj, oc["bit_md_m"] if bit_md_m is None else bit_md_m)
     q = oc["flow_gpm"] if flow_gpm is None else flow_gpm
     rop = (oc["rop_mhr"] if rop_mhr is None else rop_mhr) * M2FT
     tvd_ft = lambda md_ft: tvd_at_md_m(traj, md_ft * FT2M) * M2FT
@@ -379,7 +383,7 @@ def run_hydraulics(p, traj, flow_gpm=None, bit_md_m=None, rop_mhr=None, model=No
 
 def run_surge_swab(p, traj, speed_mmin=None, bit_md_m=None):
     oc = p["opcase"]
-    bit_md = oc["bit_md_m"] if bit_md_m is None else bit_md_m
+    bit_md = _bounded_bit_md(traj, oc["bit_md_m"] if bit_md_m is None else bit_md_m)
     v = (oc["trip_speed_mmin"] if speed_mmin is None else speed_mmin) * M2FT
     tvd_ft = lambda md_ft: tvd_at_md_m(traj, md_ft * FT2M) * M2FT
     return hy_eng.surge_swab(v, p["fluid"]["mud_ppg"], rheology(p), string_sections_ft(p, bit_md),
@@ -447,7 +451,7 @@ def operation_summary(p):
         return {"error": plan.message}
     oc, rig, lim = p["opcase"], p["rig"], p["limits"]
     td_md = float(traj["md"][-1])
-    bit_md = float(np.clip(oc["bit_md_m"], 1.0, td_md + p["plan"].get("extend_m", 0)))
+    bit_md = _bounded_bit_md(traj, oc["bit_md_m"])
     bit_tvd = tvd_at_md_m(traj, bit_md)
     inc_bit = inc_at_md(traj, bit_md)
     checks = []

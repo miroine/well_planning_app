@@ -25,6 +25,57 @@ PAGES = [studio, schematic, well_data, trajectory_page, td_page, hydraulics_page
          wellcontrol_page, bha_page, cost_page]
 
 
+def test_project_input_validation():
+    p = model.new_project()
+    assert model.project_from_json(model.project_to_json(p))["header"] == p["header"]
+    for text in (
+        '{"header": [], "fluid": {}}',
+        '{"header": {}, "fluid": {"mud_ppg": NaN}}',
+        '{"header": {}, "offset_wells": ["not an object"]}',
+    ):
+        try:
+            model.project_from_json(text)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Invalid project data accepted: {text}")
+
+
+def test_nozzle_validation():
+    p = model.new_project()
+    for value in ("14,broken,14", "", "0,14", "NaN,14"):
+        p["bit"]["nozzles"] = value
+        try:
+            model.nozzles(p)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Invalid nozzle string accepted: {value!r}")
+
+
+def test_operation_summary_clamps_bit_depth():
+    p = model.new_project()
+    p["opcase"]["bit_md_m"] = 100000.0
+    result = model.operation_summary(p)
+    assert result["bit_md"] == result["traj"]["md"][-1]
+    assert result["td"]["md"][0] == result["bit_md"] * 3.280839895
+    assert max(segment["md_bot"] for segment in result["hyd"]["segments"]) <= result["bit_md"] * 3.280839895
+
+
+def test_invalid_offsets_are_reported():
+    p = model.new_project()
+    p["offset_wells"].append({"name": "Bad offset", "hold_inc": "invalid"})
+    errors = []
+    model.anticollision(p, model.trajectory_m(p)[0], errors)
+    assert errors and "Bad offset" in errors[0]
+
+
+def test_report_can_reuse_summary(monkeypatch):
+    monkeypatch.setattr(model, "operation_summary", lambda _p: (_ for _ in ()).throw(AssertionError("recomputed")))
+    html = report.build(model.new_project(), {"error": "test"})
+    assert "Trajectory not feasible: test" in html
+
+
 def run(label, project):
     st.session_state.clear()
     state.init()
